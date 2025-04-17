@@ -1,54 +1,241 @@
-Comandos de las practicas del modulo 4
+Practica 1: Instalar un servidor HTTP apache2/nginx (1pts)
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------
+	Crear un website estatico html con la frase "Hola Mundo"
+	Crear un host virtual y ponerlo a escuchar por el puerto 80 y que al ingresar acceda al website anterior
+	Crear un website estatico html con su nombre, matricula y nombre de la materia
+	Crear un host virtual y ponerlo a escuchar por el puerto 8080 y que al ingresar acceda al website anterior
+Practica 2: Instalar un servidor de correos (2pts)
 
-comandos de practica 1
+   Instala un servidor SMTP postfix
+   Enviar un correo de ejemplo al correo del maestro "os3conadrian@gmail.com"  con el asunto "MambruSeFueALaGuerra"(esta practica solo sera corregida si el correo es recibido en el buzon del maestro) y en el cuerpo su nombre y matricula
+Practica 3: Instalar un servidor de Impresion (1pts)
 
-sudo dnf update -y
+   Instala un servidor de impresiones CUPS ("Common UNIX Printing System")
+   Instala una IMpresora virtual (PDF) y configurala con CUPS
+   En su PC cliente, instale la Impresora usando la IP del servidor
+   Realize una prueba imprimiento un documento de WORD, el mismo debe de salir impreso (en PDF) en nuestra impresora virtual
+
+
+
+
+
+practica 1
+
+instalar apeche y asctivarlo:
+
 sudo dnf install httpd -y
-sudo sustemctl status httpd
-mkdir -p /var/www/html/holamundo
-cd ..
-ls 
-cd var
-cd www
-cd html
-ls
-cd /var/www/html/holamundo
-sudo nano index.html
-sudo nano /etc/httpd/conf.d/holamundo.conf
+sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo systemctl status httpd
+
+
+
+para crear el primer sitio necesitamos crear un directorio dentro de var/www/html que de donde apache por defecto saca las informaciones para cargar la paginas.
+
+esto lo podemos hacer con el comando:
+.sudo mkdir -p /var/www/html/hola
+
+creamos el archivo html que usara la pagina con:
+.sudo nano /var/www/html/hola/index.html
+
+dentro del archivo ponemos:
+.<html>
+<h1>HOLA MUNDO </h1>
+</html>
+
+
+configuramos l puerto virtual con:
+.sudo nano /etc/httpd/conf.d/hola.conf
+
+adentro ponemos:
+<VirtualHost *:80>
+ServerName localhost
+DocumentRoot "/var/www/html/hola"
+</VirtualHost>
+
+
+reiniciamos apache para que se guarden los cmabios:
 sudo systemctl restart httpd
-sudo mkdir -p /var/www/html/migente
-cd /var/ww/html/migente
-sudo nano index.html
-sudo nano /etc/httpd/conf.d/migente.conf
+
+
+apagamos el firewall para evitar cualquier tipo de bloqueo:
+sudo systemctl stop firewalld
+
+
+y ya solo nos queda entrar al Firefox y poner:
+http://localhost:80
+
+
+
+si necesitamos crear otros sitios repetimos el proceso solo con otros nombres, y en la configuración de httpd poner el puerto por donde se va a escuchar la nueva pagina con el comando:
+
 sudo nano /etc/httpd/conf/httpd.conf
+(obviamente reiniciar después de agregar el nuevo puerto)
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-comandos de practica 2
 
-sudo dnf update -y
-sudo dnf install postfix -y
-sudo dnf install mailx -y
-sudo dnf install -y s-nail
-sudo systemctl status postfix.service
-sudo nano /etc/postfix/nain.cf
-sudo chmod 600 /etc/postfix/sasl_passwd
+---------------------------------------------------------------------------
+
+
+practica 2
+
+activamos los repositorios necesarios:
+
+sudo dnf config-manager --set-enabled ol9_baseos_latest
+sudo dnf config-manager --set-enabled ol9_appstream
+
+
+instalamos postfix y mailx(mailx actualmente esta actualizado para instalarlo usaremos s-nail):
+
+sudo dnf install postfix s-nail -y
+
+
+ahora hacemos las configuraciones para poder entrar enviar el mensaje en postfix con:
+
+sudo nano /etc/postfix/main.cf
+
+
+y ponemos adentro:
+
+# —————— Relay externo (Gmail) ——————
+relayhost                   = [smtp.gmail.com]:587
+
+# —————— Cifrado TLS ——————
+smtp_use_tls                = yes
+smtp_tls_security_level     = encrypt
+smtp_tls_CAfile             = /etc/ssl/certs/ca-bundle.crt
+
+# —————— SASL (autenticación) ——————
+smtp_sasl_auth_enable       = yes
+smtp_sasl_password_maps     = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options  = noanonymous
+smtp_sasl_mechanism_filter  = plain, login
+
+
+
+después tenemos que crear un archivo con credenciales:
+
+sudo nano /etc/postfix/sasl_passwd
+
+
+y adentro ponemos algo como esto:
+
+[smtp.gmail.com]:587    tucuenta@gmail.com:tu_app_password
+
+
+
+Protege y compila el archivo de contraseñas:
+
 sudo postmap /etc/postfix/sasl_passwd
-echo "Yonill Reyes 2024-1574 SO3" | mail -s "Manbusefuealaguerra" os3conadrian@gmail.com
-  
+sudo chown root:root /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db
+sudo chmod 600 /etc/postfix/sasl_passwd*
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------
-comandos practica 3
 
-sudo dnf install -y cups
-sudon dnf install -y cups-pdf
-sudo firewall-cmd --permanent --add-port-631/tcp
-sudo firewall-cmd --reload 
-cupsctl --remote-admin --remote-any --share-printer
-sudo nano /etc/cups/cupsd.conf
 
-(los demas comandos se realizan fuera de la terminal entonces no cuentan como comandos.)
+y reiniciamos postfix:
+
+sudo systemctl restart postfix
+sudo systemctl status postfix
+
+
+
+para enviar el correo usamos este comando:
+
+echo "klk" | mail -s "klk yonill" yonillreyes@gmail.com
+
+
+---------------------------------------------------------------------------
+
+
+practica 3:
+
+instalamos cups y cups-pdf :
+
+sudo dnf install cups*
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+sudo dnf install epel-release -y
+sudo dnf install cups-pdf* -y
+firewall-cmd --add-port=631/tcp --permanent
+firewall-cmd --reload
+
+ok una vez tengamos esto lo que tenemos que hacer es configurar el archivo de cups que se encuentra en /etc/cups específicamente el que es cupsd.conf
+de esta forma:
+
+cd etc/cups
+sudo nano cupsd.conf
+
+
+dentro de aquí le vamos a poner unos parámetros debajo de ciertos títulos para que nos deje configurar desde nuestra maquina windows el servidor ósea tenemos que poner la red de donde se va a administrar por ejemplo en estos parámetros solo le asignaremso la ip de nuesta maquina host que es la que va a ha administrar y nuestra VM que es la ip que usaremos para conectarnos desde nuestra maquina host:
+
+aquí agregamos la ip de nuestra VM:
+
+# Only listen for connections from the local machine.
+Listen localhost:631
+Listen /run/cups/cups.sock
+Listen 192.168.100.64
+
+
+
+y en estos la red de nuestro  host:
+
+ Restrict access to the server...
+<Location />
+  Allow from 192.168.100.0/24
+  Order allow,deny
+</Location>
+
+# Restrict access to the admin pages...
+<Location /admin>
+  Allow from 192.168.100.0/24
+  Order allow,deny
+</Location>
+
+# Restrict access to configuration files...
+<Location /admin/conf>
+  Allow from 192.168.100.0/24
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+</Location>
+
+ Restrict access to log files...
+<Location /admin/log>
+ Allow from 192.168.100.0/24
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+</Location>
+
+
+ya solo tenemos que entrar desde nuestro host por el puerto 631 por ejemplo en mi caso seria con:
+
+ 192.168.100.64:631
+
+
+
+PASOS DENTRO DE CUPS:
+
+paso1: le damo a administración
+
+paso 2: nos va ha solicitar una contraseña usaremos el usuario y del root
+
+paso 3: una vez aquí le vamos a dar a añadir una impresora
+
+paso 4: donde dice impresoras locales vamos a seleccionar la que dice CPUSPDF y le daremos a siguiente 
+
+paso 5: nos dará para ponerle el nombre se puede dejar por defecto, pero lo que si tenemos que habilitar es la opción de compartir esta impresa y le damos a sgueinte .
+
+paso 6: Nos enseñara unas opciones le daremos a Generic y despues a sigueinte.
+
+paso 7: aqui solo selecionamos la primera opcion del apartado de modelo y le daremos a añadir impresora
+
+paso 8: una vez creada la buscamos en IMPRESORAS  y dentro copiamos el link que esta en el buscador que lo usaremos para mas tarde.
+
+paso 9: en nuestra maquina host nos vamos a IMPRESORAS Y SCANNER y le damos 
+a buscar una impresora, y seleccionamos añadir manualmente.
+
+paso 10: se nos abrira un meno donde tenemos que seleccionar, seleccionar una impresora compartida por nombre y pegamos el link(OJO QUITAR LA S EN HTTPS PARA QUE NOS DEJE PONERLA).
+
+PASO 11: ya en el ltimo paso cuando la encuentre le daremos a aceptar, depues en siguiente y por ultimo imprimir una pagina de prueba, nos vamos a la pagina donde están las impresoras y seleccionamos la impresora que creamos y vemos si todo salió bien
 
 
